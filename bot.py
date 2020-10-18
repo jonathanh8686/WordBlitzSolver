@@ -5,6 +5,8 @@ from PIL import Image
 import pyautogui
 
 pyautogui.FAILSAFE = True
+pyautogui.PAUSE = 0.03
+
 
 CONST_X, CONST_Y = 586, 470
 boardState = []
@@ -95,24 +97,53 @@ def inBound(x, y):
         return False
     return True
 
-def getPathsFromChar(row, col, board, depth, mxdepth):
-    paths = []
-    if(depth >= mxdepth):
-        return [[board[row][col], [(row, col)]]]
 
+# does this prefix exist in eng_words?
+def prefixExists(pref):
+    l = 0
+    r = len(list_words) - 1
+    while(r > l):
+        m = (r+l)//2
+        if(list_words[m].startswith(pref)):
+            return True
+
+        if(list_words[m] > pref):
+            r = m
+        elif(list_words[m] < pref):
+            l = m + 1
+    return False
+
+    
+
+
+def dfs(row, col, board, depth, mxdepth, cpath):
+    #print(f"called {row} {col} at depth {depth}")
+    new_path = [cpath[0] + board[row][col], cpath[1] + [(row,col)]]
+
+    if(not prefixExists(new_path[0])):
+        return []
+
+    ans = []
+
+    if(new_path[0].strip() in eng_words):
+        ans.append(new_path)
+
+    if(depth == mxdepth):
+        return []
+ 
     dx, dy = [-1,-1,0,1,1,1,0,-1], [0,-1,-1,-1,0,1,1,1]
     for i in range(8):
-        if(inBound(row + dx[i], col + dy[i])):
-            if(visit[row + dx[i]][col + dy[i]] == False):
-                visit[row][col] = True
-                p = getPathsFromChar(row + dx[i], col + dy[i], board, depth + 1, mxdepth)
-                visit[row][col] = False
-                for j in p:
-                    newPath = [board[row][col] + j[0], [(row, col)] + j[1]]
-                    paths.append(newPath)
+        nr = dx[i]+row
+        nc = dy[i]+col
+        if(not inBound(row + dx[i], col + dy[i]) or visit[nr][nc]):
+            continue
 
-    return paths
+        visit[row][col] = True
+        ans.extend(dfs(nr, nc, board, depth+1, mxdepth, new_path))
+        visit[row][col] = False
 
+    return ans
+           
 def filterGarbageWords(words):
     mousePaths = []
     for w in words:
@@ -129,28 +160,33 @@ def executePath(p):
     for pos in p:
         xpos = pos[1] * 100
         ypos = pos[0] * 100
-        print(boardState[pos[0]][pos[1]])
+        #print(boardState[pos[0]][pos[1]])
 
-        print("Moving to: {}, {}".format(650 + xpos, 530 + ypos))
+        #print("Moving to: {}, {}".format(650 + xpos, 530 + ypos))
         pyautogui.moveTo(650 + xpos, 530 + ypos)
 
     pyautogui.mouseUp()
-    print("-------------------\n\n")
+    #print("-------------------\n\n")
 
 print("Started")
 print("Getting Board...")
 
-wordsurl="https://raw.githubusercontent.com/first20hours/google-10000-english/master/20k.txt"
+#wordsurl="https://raw.githubusercontent.com/first20hours/google-10000-english/master/20k.txt"
 #wordsurl="https://gist.githubusercontent.com/h3xx/1976236/raw/bbabb412261386673eff521dddbe1dc815373b1d/wiki-100k.txt"
-eng_words = urllib2.urlopen(wordsurl).read()
-eng_words = eng_words.decode().replace("\r", "").split("\n")
-eng_words = set(eng_words)
+#wordsurl ="https://raw.githubusercontent.com/abhigyank/Word-Blitz-Facebook/master/words.txt"
+#eng_words = urllib2.urlopen(wordsurl).read()
+#eng_words = eng_words.decode().replace("\r", "").split("\n")
 
-print("ora" in eng_words)
+#eng_words = eng_words.strip().split()
+
+#eng_words = open("words.txt", "r").read().strip().split()
+eng_words = [x.strip().lower() for x in open("words3.txt", "r").readlines()]
+list_words = eng_words.copy()
+eng_words = set(eng_words)
 
 visit = [[False for _ in range(4)] for _ in range(4)]
 try:
-    boardImage = pyautogui.screenshot(region = (CONST_X,CONST_Y,415,415))
+    #boardImage = pyautogui.screenshot(region = (CONST_X,CONST_Y,415,415))
     #boardImage.show()
     #boardImage = Image.open("game2.png")
     #boardState = getBoard(boardImage)
@@ -158,8 +194,10 @@ try:
 
     for i in range(4):
         for j in range(4):
-            for k in range(2, 7)[::-1]:
-                words = getPathsFromChar(i, j, boardState, 0, k)
+            for k in range(10,11):
+                print("k:\t" + str(k))
+                words = dfs(i, j, boardState, 0, 12, ["", []])
+                print(words)
                 paths = filterGarbageWords(words)
                 for p in paths:
                     executePath(p)
@@ -167,6 +205,4 @@ try:
     print(used_words)
 except KeyboardInterrupt:
     print("Closed.")
-
-
 
